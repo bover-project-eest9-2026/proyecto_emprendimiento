@@ -1,25 +1,23 @@
 # main.py
-# Este es el archivo principal del backend.
-# Aquí se crea el servidor FastAPI y se definen todas las RUTAS (endpoints).
+# Backend completo para la venta de empanadas usando JSON como base de datos.
+# Los datos se guardan en un archivo "productos.json" en la misma carpeta.
+# No necesita PostgreSQL ni SQLite, todo es un archivo de texto.
 #
-# ¿Qué es una ruta? Es una URL que el frontend puede llamar.
-# Ejemplo: GET http://localhost:8000/empanadas → devuelve todas las empanadas
+# Para correr el servidor:
+# uvicorn main:app --reload
+#
+# Documentación automática:
+# http://localhost:8000/docs
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from typing import List
+from pydantic import BaseModel
+from typing import Optional
+import json
+import os
 
-# Importamos nuestros propios archivos
-import models
-import schemas
-from database import engine, get_db
+# ─── CONFIGURACIÓN ─────────────────────────────────────────
 
-# Esto crea todas las tablas en la BD si no existen todavía
-# La primera vez que corras el servidor, crea el archivo "empanadas.db"
-models.Base.metadata.create_all(bind=engine)
-
-# Creamos la aplicación FastAPI
 app = FastAPI(
     title="API Empanadas 🫓",
     description="Backend para la venta de empanadas",
@@ -27,123 +25,168 @@ app = FastAPI(
 )
 
 # CORS: permite que el frontend (Next.js en puerto 3000) hable con el backend
-# Sin esto, el navegador bloquea las peticiones por seguridad
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # URL del frontend
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
-    allow_methods=["*"],   # Permite GET, POST, PUT, DELETE, etc.
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Ruta del archivo JSON donde se guardan los datos
+ARCHIVO_JSON = "productos.json"
 
-# ─────────────────────────────────────────────
-# RUTA RAÍZ → solo para verificar que el servidor funciona
-# Probala en el navegador: http://localhost:8000
-# ─────────────────────────────────────────────
+
+# ─── MODELOS ───────────────────────────────────────────────
+
+# Modelo para CREAR una empanada (lo que manda el frontend)
+class EmpanadaCreate(BaseModel):
+    nombre: str
+    relleno: str
+    precio: float
+    stock: int
+
+# Modelo para EDITAR una empanada (todos los campos opcionales)
+class EmpanadaUpdate(BaseModel):
+    nombre: Optional[str] = None
+    relleno: Optional[str] = None
+    precio: Optional[float] = None
+    stock: Optional[int] = None
+
+
+# ─── FUNCIONES PARA MANEJAR EL JSON ────────────────────────
+
+def leer_productos():
+    """Lee el archivo JSON y devuelve la lista de productos.
+    Si el archivo no existe, lo crea vacío."""
+
+    if not os.path.exists(ARCHIVO_JSON):
+        # Si no existe el archivo, lo creamos con una lista vacía
+        guardar_productos([])
+        return []
+
+    with open(ARCHIVO_JSON, "r", encoding="utf-8") as f:
+        return json.load(f)
+        # json.load() → convierte el texto JSON a una lista de Python
+
+
+def guardar_productos(productos):
+    """Guarda la lista de productos en el archivo JSON."""
+
+    with open(ARCHIVO_JSON, "w", encoding="utf-8") as f:
+        json.dump(productos, f, ensure_ascii=False, indent=2)
+        # json.dump() → convierte la lista Python a texto JSON
+        # ensure_ascii=False → permite caracteres como ñ, á, é
+        # indent=2 → formato legible con sangría de 2 espacios
+
+
+def generar_id(productos):
+    """Genera un nuevo id único para una empanada.
+    Busca el id más alto y le suma 1."""
+
+    if not productos:
+        return 1  # Si no hay productos, el primer id es 1
+
+    return max(p["id"] for p in productos) + 1
+    # max() → busca el id más alto de todos los productos
+
+
+# ─── RUTAS ─────────────────────────────────────────────────
+
+# Ruta raíz → para verificar que el servidor funciona
 @app.get("/")
 def inicio():
     return {"mensaje": "¡Bienvenido a la API de Empanadas! 🫓"}
 
 
-# ─────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 # GET /empanadas → Obtener TODAS las empanadas
 # El frontend llama esto para mostrar el listado
-# ─────────────────────────────────────────────
-@app.get("/empanadas", response_model=List[schemas.EmpanadaResponse])
-def listar_empanadas(db: Session = Depends(get_db)):
-    # db.query(models.Empanada) → hace un SELECT * FROM empanadas
-    # .all() → trae todos los resultados
-    empanadas = db.query(models.Empanada).all()
-    return empanadas
+# ───────────────────────────────────────────────────────────
+@app.get("/empanadas")
+def listar_empanadas():
+    productos = leer_productos()  # Leemos el JSON
+    return productos              # Devolvemos la lista completa
 
 
-# ─────────────────────────────────────────────
-# GET /empanadas/{id} → Obtener UNA empanada por su id
+# ───────────────────────────────────────────────────────────
+# GET /empanadas/{id} → Obtener UNA empanada por id
 # Ejemplo: GET http://localhost:8000/empanadas/1
-# ─────────────────────────────────────────────
-@app.get("/empanadas/{empanada_id}", response_model=schemas.EmpanadaResponse)
-def obtener_empanada(empanada_id: int, db: Session = Depends(get_db)):
-    # .filter() → equivale a WHERE id = empanada_id
-    # .first() → trae solo el primer resultado (o None si no existe)
-    empanada = db.query(models.Empanada).filter(models.Empanada.id == empanada_id).first()
+# ───────────────────────────────────────────────────────────
+@app.get("/empanadas/{empanada_id}")
+def obtener_empanada(empanada_id: int):
+    productos = leer_productos()
 
-    # Si no existe, respondemos con error 404
-    if empanada is None:
-        raise HTTPException(status_code=404, detail="Empanada no encontrada")
+    # Buscamos la empanada con el id recibido
+    for producto in productos:
+        if producto["id"] == empanada_id:
+            return producto
 
-    return empanada
+    # Si no la encontramos, respondemos con error 404
+    raise HTTPException(status_code=404, detail="Empanada no encontrada")
 
 
-# ─────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 # POST /empanadas → Agregar una nueva empanada
-# El frontend manda los datos del formulario aquí
-# ─────────────────────────────────────────────
-@app.post("/empanadas", response_model=schemas.EmpanadaResponse, status_code=201)
-def crear_empanada(empanada: schemas.EmpanadaCreate, db: Session = Depends(get_db)):
-    # Creamos un objeto del modelo con los datos recibidos
-    nueva_empanada = models.Empanada(
-        nombre=empanada.nombre,
-        relleno=empanada.relleno,
-        precio=empanada.precio,
-        stock=empanada.stock
-    )
+# El frontend manda los datos del formulario
+# ───────────────────────────────────────────────────────────
+@app.post("/empanadas", status_code=201)
+def crear_empanada(empanada: EmpanadaCreate):
+    productos = leer_productos()  # Leemos los productos actuales
 
-    db.add(nueva_empanada)    # La agregamos a la sesión (INSERT)
-    db.commit()                # Guardamos los cambios en la BD
-    db.refresh(nueva_empanada) # Actualizamos el objeto con el id generado
+    # Creamos el nuevo producto como diccionario
+    nuevo = {
+        "id": generar_id(productos),   # Generamos un id único
+        "nombre": empanada.nombre,
+        "relleno": empanada.relleno,
+        "precio": empanada.precio,
+        "stock": empanada.stock,
+    }
 
-    return nueva_empanada
+    productos.append(nuevo)       # Lo agregamos a la lista
+    guardar_productos(productos)  # Guardamos el JSON actualizado
+
+    return nuevo  # Devolvemos el producto creado con su id
 
 
-# ─────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 # PUT /empanadas/{id} → Editar una empanada existente
 # El frontend manda solo los campos que quiere cambiar
-# ─────────────────────────────────────────────
-@app.put("/empanadas/{empanada_id}", response_model=schemas.EmpanadaResponse)
-def editar_empanada(empanada_id: int, datos: schemas.EmpanadaUpdate, db: Session = Depends(get_db)):
-    # Buscamos la empanada a editar
-    empanada = db.query(models.Empanada).filter(models.Empanada.id == empanada_id).first()
+# ───────────────────────────────────────────────────────────
+@app.put("/empanadas/{empanada_id}")
+def editar_empanada(empanada_id: int, datos: EmpanadaUpdate):
+    productos = leer_productos()
 
-    if empanada is None:
-        raise HTTPException(status_code=404, detail="Empanada no encontrada")
+    # Buscamos la empanada con el id recibido
+    for i, producto in enumerate(productos):
+        if producto["id"] == empanada_id:
 
-    # Actualizamos solo los campos que no son None
-    # exclude_unset=True → ignora los campos que no se mandaron
-    datos_a_actualizar = datos.model_dump(exclude_unset=True)
-    for campo, valor in datos_a_actualizar.items():
-        setattr(empanada, campo, valor)  # Equivale a: empanada.nombre = valor
+            # Actualizamos solo los campos que no son None
+            cambios = datos.model_dump(exclude_unset=True)
+            productos[i].update(cambios)
+            # .update() → actualiza el diccionario con los nuevos valores
 
-    db.commit()             # Guardamos
-    db.refresh(empanada)    # Actualizamos el objeto
+            guardar_productos(productos)  # Guardamos
+            return productos[i]           # Devolvemos el producto actualizado
 
-    return empanada
+    raise HTTPException(status_code=404, detail="Empanada no encontrada")
 
 
-# ─────────────────────────────────────────────
+# ───────────────────────────────────────────────────────────
 # DELETE /empanadas/{id} → Eliminar una empanada
-# El frontend llama esto cuando el usuario hace click en "Eliminar"
-# ─────────────────────────────────────────────
+# El frontend llama esto al hacer click en "Eliminar"
+# ───────────────────────────────────────────────────────────
 @app.delete("/empanadas/{empanada_id}")
-def eliminar_empanada(empanada_id: int, db: Session = Depends(get_db)):
-    # Buscamos la empanada a eliminar
-    empanada = db.query(models.Empanada).filter(models.Empanada.id == empanada_id).first()
+def eliminar_empanada(empanada_id: int):
+    productos = leer_productos()
 
-    if empanada is None:
+    # Filtramos la lista EXCLUYENDO el producto con el id recibido
+    productos_filtrados = [p for p in productos if p["id"] != empanada_id]
+
+    # Si la lista no cambió, el producto no existía
+    if len(productos_filtrados) == len(productos):
         raise HTTPException(status_code=404, detail="Empanada no encontrada")
 
-    db.delete(empanada)  # La marcamos para borrar
-    db.commit()           # Confirmamos el borrado
+    guardar_productos(productos_filtrados)  # Guardamos la lista sin el producto
 
-    return {"mensaje": f"Empanada '{empanada.nombre}' eliminada correctamente"}
-
-
-# ─────────────────────────────────────────────
-# Para correr el servidor:
-# uvicorn main:app --reload
-#
-# --reload → reinicia automáticamente cuando guardás cambios
-#
-# Documentación automática disponible en:
-# http://localhost:8000/docs  ← interfaz visual para probar las rutas
-# ─────────────────────────────────────────────
+    return {"mensaje": "Empanada eliminada correctamente"}
