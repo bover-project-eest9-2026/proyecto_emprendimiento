@@ -1,39 +1,104 @@
+/* globals.css */
+/* ─────────────────────────────────────────────────────────────────────────────
+   Este archivo define los estilos GLOBALES de toda la aplicación.
+   "Global" significa que afecta a TODOS los elementos de TODAS las páginas,
+   no solo a un componente específico.
+
+   Next.js carga este archivo automáticamente porque está importado en layout.js:
+     import "./globals.css";
+   ───────────────────────────────────────────────────────────────────────────── */
+
+
+/* ── Importación de Tailwind CSS ──────────────────────────────────────────────
+   Esta línea importa Tailwind CSS, una librería de utilidades CSS.
+   Tailwind permite usar clases como "text-yellow-400" o "flex" directamente
+   en el HTML/JSX, sin escribir CSS manual.
+   En este proyecto está importado pero no se usan clases de Tailwind en los
+   componentes (se usan estilos inline en su lugar).
+   ───────────────────────────────────────────────────────────────────────────── */
 @import "tailwindcss";
 
+
+/* ── Variables CSS (Custom Properties) ───────────────────────────────────────
+   :root es un selector especial que apunta al elemento raíz del documento (html).
+   Las variables definidas acá están disponibles en TODO el CSS del proyecto.
+   Se definen con "--nombre" y se usan con "var(--nombre)".
+
+   Ejemplo de uso en otro archivo CSS:
+     color: var(--amarillo);   → equivale a color: #F5C800;
+
+   Ventaja: si querés cambiar el amarillo en toda la app, solo lo cambiás acá.
+   ───────────────────────────────────────────────────────────────────────────── */
 :root {
-  --negro: #111111;
-  --amarillo: #F5C800;
-  --rojo: #CC1C1C;
-  --gris: #1E1E1E;
-  --gris-claro: #2A2A2A;
-  --texto: #F0F0F0;
+  --negro: #111111;       /* Fondo principal de la app */
+  --amarillo: #F5C800;    /* Color de acento principal (títulos, botones) */
+  --rojo: #CC1C1C;        /* Color secundario (franjas decorativas, eliminar) */
+  --gris: #1E1E1E;        /* Fondo de tarjetas y formularios */
+  --gris-claro: #2A2A2A;  /* Fondo de inputs y bordes */
+  --texto: #F0F0F0;       /* Color del texto principal */
 }
 
+
+/* ── Reset de márgenes y padding ─────────────────────────────────────────────
+   Por defecto, los navegadores agregan márgenes y paddings propios a los
+   elementos HTML. Este "reset" los elimina para tener control total del diseño.
+
+   * (asterisco) → selector universal: aplica a TODOS los elementos.
+   *::before y *::after → también aplica a los pseudo-elementos (contenido
+     generado por CSS antes o después de un elemento).
+
+   box-sizing: border-box → cambia cómo se calcula el tamaño de los elementos.
+     Por defecto (content-box): width = solo el contenido (sin padding ni border).
+     Con border-box:            width = contenido + padding + border.
+     Esto hace que los tamaños sean más predecibles y fáciles de manejar.
+   ───────────────────────────────────────────────────────────────────────────── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+
+/* ── Estilos base del documento ──────────────────────────────────────────────
+   Aplica estilos al html y al body (los contenedores raíz de toda la página).
+   ───────────────────────────────────────────────────────────────────────────── */
 html, body {
-  background-color: #111111;
-  color: #F0F0F0;
-  font-family: 'Barlow', sans-serif;
-  width: 100%;
-  min-height: 100vh;
-  overflow-x: hidden;
+  background-color: #111111;            /* Fondo negro */
+  color: #F0F0F0;                       /* Texto blanco/gris claro por defecto */
+  font-family: 'Barlow', sans-serif;    /* Fuente principal de toda la app */
+                                        /* 'sans-serif' es el fallback: si Barlow
+                                           no carga, usa la fuente sans-serif
+                                           del sistema */
+  width: 100%;                          /* Ocupa todo el ancho de la pantalla */
+  min-height: 100vh;                    /* Mínimo 100% del alto de la ventana
+                                           (vh = viewport height) */
+  overflow-x: hidden;                   /* Oculta el scroll horizontal si algún
+                                           elemento se sale del borde */
 }
 
+
+/* ── Estilos de la barra de scroll personalizada ─────────────────────────────
+   Estos estilos son específicos para navegadores basados en WebKit
+   (Chrome, Edge, Safari). Firefox usa una API diferente.
+
+   ::-webkit-scrollbar         → la barra de scroll completa
+   ::-webkit-scrollbar-track   → el carril por donde se mueve la barra
+   ::-webkit-scrollbar-thumb   → el "pulgar" (la parte que se arrastra)
+   ::-webkit-scrollbar-thumb:hover → el pulgar cuando el mouse está encima
+   ───────────────────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 8px;   /* Ancho de la barra de scroll (por defecto suele ser ~15px) */
 }
+
 ::-webkit-scrollbar-track {
-  background: #111111;
+  background: #111111;   /* Fondo del carril: mismo negro que la app */
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 4px;
+  background: #333;          /* Color del pulgar: gris oscuro */
+  border-radius: 4px;        /* Bordes redondeados en el pulgar */
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #F5C800;
+  background: #F5C800;   /* Al pasar el mouse, el pulgar se pone amarillo */
 }
