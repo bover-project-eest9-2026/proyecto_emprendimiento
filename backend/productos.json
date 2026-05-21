@@ -19,5 +19,12 @@
     "relleno": "Cebolla, queso, oregano, azucar",
     "precio": 1200.0,
     "stock": 10
+  },
+  {
+    "id": 4,
+    "nombre": "example",
+    "relleno": "example",
+    "precio": 1.0,
+    "stock": 0
   }
 ]

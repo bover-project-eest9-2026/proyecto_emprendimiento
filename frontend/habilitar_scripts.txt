@@ -1,1 +1,3 @@
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+npm install -g repomix

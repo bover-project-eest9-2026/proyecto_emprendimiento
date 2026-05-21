@@ -58,6 +58,12 @@ export default function Home() {
   // Texto que el usuario escribe en el buscador.
   // Empieza vacío "".
 
+  const [filtroTipo, setFiltroTipo] = useState("");
+  // Filtro por tipo de empanada (carne, pollo, etc.)
+
+  const [filtroDisponibilidad, setFiltroDisponibilidad] = useState("");
+  // Filtro por disponibilidad (disponible o agotado)
+
   const [empanadaEditar, setEmpanadaEditar] = useState(null);
   // Empanada seleccionada para editar.
   // null = no hay ninguna siendo editada (modo "crear nueva").
@@ -171,17 +177,33 @@ export default function Home() {
 
 
   // ── Filtrado de empanadas ─────────────────────────────────────────────────
-  // Filtramos la lista de empanadas según el texto de búsqueda.
+  // Filtramos la lista de empanadas según el texto de búsqueda y filtros.
   // .filter() devuelve un nuevo array con solo los elementos que cumplen la condición.
   // .toLowerCase() convierte a minúsculas para que la búsqueda no distinga entre
   //   "Carne", "carne" y "CARNE".
   // .includes() devuelve true si el string contiene el texto buscado.
-  const empanadsFiltradas = empanadas.filter((e) =>
-    e.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-    // || es el operador OR: devuelve true si cualquiera de las dos condiciones es true
-    e.relleno.toLowerCase().includes(busqueda.toLowerCase())
-    // Filtramos por nombre O por relleno
-  );
+  const empanadsFiltradas = empanadas.filter((e) => {
+    // Filtro por texto (nombre o relleno)
+    const matchBusqueda = busqueda === "" ||
+      e.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+      e.relleno.toLowerCase().includes(busqueda.toLowerCase());
+
+    // Filtro por tipo
+    const matchTipo = filtroTipo === "" || e.relleno.toLowerCase().includes(filtroTipo.toLowerCase());
+
+    // Filtro por disponibilidad
+    let matchDisponibilidad = true;
+    if (filtroDisponibilidad === "disponible") {
+      matchDisponibilidad = e.stock > 0;
+    } else if (filtroDisponibilidad === "agotado") {
+      matchDisponibilidad = e.stock === 0;
+    }
+
+    return matchBusqueda && matchTipo && matchDisponibilidad;
+  });
+
+  // Obtener tipos únicos de empanadas (basado en el relleno)
+  const tiposUnicos = [...new Set(empanadas.map((e) => e.relleno))].sort();
 
 
   // ── JSX: lo que se muestra en pantalla ───────────────────────────────────
@@ -215,18 +237,27 @@ export default function Home() {
         {/* Título principal */}
         <h1 style={{
           fontFamily: "'Bebas Neue', sans-serif",
-          // clamp(min, preferred, max) → tamaño responsivo:
-          //   mínimo 2.5rem, preferiblemente 6% del ancho de la ventana,
-          //   máximo 4.5rem. Se ajusta automáticamente según el tamaño de pantalla.
-          fontSize: "clamp(2.5rem, 6vw, 4.5rem)",
+          fontSize: "clamp(1.8rem, 4vw, 2.5rem)",
           color: "#F5C800",
           letterSpacing: "3px",
           lineHeight: 1,
-          // textShadow: desplazamiento-x desplazamiento-y blur color
-          // Agrega un halo amarillo suave debajo del texto
           textShadow: "0 2px 20px rgba(245,200,0,0.3)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "16px",
         }}>
+          <img
+            src="/logo-empanadas.png"
+            alt="Logo"
+            style={{ height: "100px", objectFit: "contain" }}
+          />
           Tienda de Empanadas
+          <img
+            src="/logo-empanadas.png"
+            alt="Logo"
+            style={{ height: "100px", objectFit: "contain" }}
+          />
         </h1>
 
         {/* Subtítulo */}
@@ -280,7 +311,14 @@ export default function Home() {
             Cada vez que el usuario escribe, setBusqueda actualiza el estado
             y el componente se re-renderiza con la lista filtrada.
         ──────────────────────────────────────────────────────────────────── */}
-        <Buscador onBuscar={setBusqueda} />
+        <Buscador
+          onBuscar={setBusqueda}
+          tipos={tiposUnicos}
+          filtroTipo={filtroTipo}
+          setFiltroTipo={setFiltroTipo}
+          filtroDisponibilidad={filtroDisponibilidad}
+          setFiltroDisponibilidad={setFiltroDisponibilidad}
+        />
 
         {/* ── Estado: cargando ───────────────────────────────────────────────
             Solo se muestra si cargando es true.
